@@ -51,9 +51,9 @@ function forEachFile(current: string, where: (src: string) => boolean, apply: (s
 }
 
 function main(name: string, n: number): Promise<number> {
-    const moduleName = assumeModuleName(name);
     const promise = new Promise<number>(async resolve => {
         try {
+            const moduleName = assumeModuleName(name);
             const typesDir = path.resolve(`${process.cwd()}/types/${name}`);
             const workDir = `${workDirBase}/${name}`;
 
@@ -155,9 +155,9 @@ build/`,
 
             rimraf(workDir);
 
-            console.log(`${n},"${moduleName}","ok"`);
+            console.log(`${n},"${name}","ok"`);
         } catch (err) {
-            console.log(`${n},"${moduleName}","failed"`);
+            console.log(`${n},"${name}","failed"`);
             console.error(err);
         } finally {
             fulfilled.push(promise);
