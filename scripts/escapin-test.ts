@@ -6,6 +6,7 @@ import { command } from 'execa';
 import * as fs from 'fs';
 import { sync as mkdirp } from 'mkdirp';
 import { ncp as _ncp } from 'ncp';
+import { cpus } from 'os';
 import * as path from 'path';
 import { sync as rimraf } from 'rimraf';
 
@@ -160,7 +161,7 @@ build/`,
     }
 }
 
-const N = 6;
+const N = cpus().length;
 const finished: Array<Promise<number>> = [];
 
 (async () => {
