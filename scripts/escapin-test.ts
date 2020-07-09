@@ -172,7 +172,7 @@ const finished: Array<Promise<number>> = [];
         if (names.length === 0 && workers.length === 0) {
             break;
         }
-        if (workers.length < N) {
+        if (names.length > 0 && workers.length < N) {
             ++n;
             const worker = main(names.shift(), n);
             worker.then(() => {
