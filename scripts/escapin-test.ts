@@ -53,10 +53,9 @@ function forEachFile(current: string, where: (src: string) => boolean, apply: (s
 
 async function main(name: string, n: number): Promise<number> {
     const moduleName = assumeModuleName(name);
+    const typesDir = path.resolve(`${process.cwd()}/types/${name}`);
+    const workDir = `${workDirBase}/${name}`;
     try {
-        const typesDir = path.resolve(`${process.cwd()}/types/${name}`);
-        const workDir = `${workDirBase}/${name}`;
-
         mkdirp(workDir);
         ncp(typesDir, workDir);
 
@@ -133,7 +132,8 @@ build/`,
                 NODE_ENV: 'test',
             },
         });
-        subprocess.stdout?.pipe(fs.createWriteStream(`${resultDir}/${n}.log`));
+        subprocess.stdout?.pipe(fs.createWriteStream(`${resultDir}/${n}-stdout.log`));
+        subprocess.stderr?.pipe(fs.createWriteStream(`${resultDir}/${n}-stderr.log`));
 
         await subprocess;
 
@@ -150,13 +150,19 @@ build/`,
             },
         );
 
-        rimraf(workDir);
-
         console.log(`${n},"${moduleName}","ok"`);
     } catch (err) {
-        console.log(`${n},"${moduleName}","failed"`);
+        const msg = err.toString();
+        if (msg.indexOf('npm ERR! code E404') !== -1) {
+            console.log(`${n},"${moduleName}","module not found"`);
+        } else if (msg.indexOf('SyntaxError') !== -1) {
+            console.log(`${n},"${moduleName}","syntax error"`);
+        } else {
+            console.log(`${n},"${moduleName}","error"`);
+        }
         console.error(err);
     } finally {
+        rimraf(workDir);
         return n;
     }
 }
