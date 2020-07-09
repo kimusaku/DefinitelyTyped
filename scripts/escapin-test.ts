@@ -50,125 +50,118 @@ function forEachFile(current: string, where: (src: string) => boolean, apply: (s
     }
 }
 
-function main(name: string, n: number): Promise<number> {
-    const promise = new Promise<number>(async resolve => {
-        try {
-            const moduleName = assumeModuleName(name);
-            const typesDir = path.resolve(`${process.cwd()}/types/${name}`);
-            const workDir = `${workDirBase}/${name}`;
+async function main(name: string, n: number): Promise<number> {
+    const moduleName = assumeModuleName(name);
+    try {
+        const typesDir = path.resolve(`${process.cwd()}/types/${name}`);
+        const workDir = `${workDirBase}/${name}`;
 
-            mkdirp(workDir);
-            ncp(typesDir, workDir);
+        mkdirp(workDir);
+        ncp(typesDir, workDir);
 
-            forEachFile(
-                workDir,
-                src => ['.ts', '.tsx'].includes(path.extname(src)) && !src.endsWith('.d.ts'),
-                src => {
-                    const file = fs.readFileSync(src, 'utf8');
-                    const ast = parser.parse(file, {
-                        allowReturnOutsideFunction: true,
-                        plugins: ['jsx', 'typescript'],
-                        sourceType: 'module',
-                    });
+        forEachFile(
+            workDir,
+            src => ['.ts', '.tsx'].includes(path.extname(src)) && !src.endsWith('.d.ts'),
+            src => {
+                const file = fs.readFileSync(src, 'utf8');
+                const ast = parser.parse(file, {
+                    allowReturnOutsideFunction: true,
+                    plugins: ['jsx', 'typescript'],
+                    sourceType: 'module',
+                });
 
-                    const { body } = ast.program;
-                    const isImportDeclaration = (stmt: t.Statement) =>
-                        t.isImportDeclaration(stmt) || t.isTSImportEqualsDeclaration(stmt);
-                    const imports = body.filter(isImportDeclaration);
-                    const rest = body.filter(stmt => !isImportDeclaration(stmt));
-                    ast.program = t.program([
-                        ...imports,
-                        t.functionDeclaration(t.identifier('func'), [], t.blockStatement(rest)),
-                    ]);
+                const { body } = ast.program;
+                const isImportDeclaration = (stmt: t.Statement) =>
+                    t.isImportDeclaration(stmt) || t.isTSImportEqualsDeclaration(stmt);
+                const imports = body.filter(isImportDeclaration);
+                const rest = body.filter(stmt => !isImportDeclaration(stmt));
+                ast.program = t.program([
+                    ...imports,
+                    t.functionDeclaration(t.identifier('func'), [], t.blockStatement(rest)),
+                ]);
 
-                    fs.writeFileSync(src, generator(ast).code, 'utf8');
-                    fs.writeFileSync(
-                        `${resultDir}/${n}-${name}-${path.relative(workDir, src).replace(/\//g, '_')}`,
-                        generator(ast).code,
-                        'utf8',
-                    );
-                },
-            );
+                fs.writeFileSync(src, generator(ast).code, 'utf8');
+                fs.writeFileSync(
+                    `${resultDir}/${n}-${name}-${path.relative(workDir, src).replace(/\//g, '_')}`,
+                    generator(ast).code,
+                    'utf8',
+                );
+            },
+        );
 
-            forEachFile(
-                workDir,
-                src => src.endsWith('.d.ts'),
-                src => {
-                    fs.copyFileSync(
-                        src,
-                        `${resultDir}/${n}-${name}-${path.relative(workDir, src).replace(/\//g, '_')}`,
-                    );
-                },
-            );
+        forEachFile(
+            workDir,
+            src => src.endsWith('.d.ts'),
+            src => {
+                fs.copyFileSync(src, `${resultDir}/${n}-${name}-${path.relative(workDir, src).replace(/\//g, '_')}`);
+            },
+        );
 
-            fs.writeFileSync(
-                `${workDir}/package.json`,
-                `{
-  "name": "${moduleName}-test",
-  "version": "1.0.0",
-  "dependencies": {
-    "${moduleName}": "latest"
-  }
+        fs.writeFileSync(
+            `${workDir}/package.json`,
+            `{
+"name": "${moduleName}-test",
+"version": "1.0.0",
+"dependencies": {
+"${moduleName}": "latest"
+}
 }`,
-                'utf8',
-            );
+            'utf8',
+        );
 
-            fs.writeFileSync(
-                `${workDir}/.escapinrc.js`,
-                `module.exports = {
-  name: '${name}',
-  platform: 'aws',
-  output_dir: 'build',
+        fs.writeFileSync(
+            `${workDir}/.escapinrc.js`,
+            `module.exports = {
+name: '${name}',
+platform: 'aws',
+output_dir: 'build',
 };`,
-                'utf8',
-            );
+            'utf8',
+        );
 
-            fs.writeFileSync(
-                `${workDir}/.gitignore`,
-                `node_modules/
+        fs.writeFileSync(
+            `${workDir}/.gitignore`,
+            `node_modules/
 .escapinrc.js
 build/`,
-                'utf8',
-            );
+            'utf8',
+        );
 
-            const subprocess = command(`nohup node node_modules/escapin/bin/cli.js -d ${workDir} &`, {
-                env: {
-                    NODE_ENV: 'test',
-                },
-            });
-            subprocess.stdout?.pipe(fs.createWriteStream(`${resultDir}/${n}.log`));
+        const subprocess = command(`nohup node node_modules/escapin/bin/cli.js -d ${workDir} &`, {
+            env: {
+                NODE_ENV: 'test',
+            },
+        });
+        subprocess.stdout?.pipe(fs.createWriteStream(`${resultDir}/${n}.log`));
 
-            await subprocess;
+        await subprocess;
 
-            forEachFile(
-                `${workDir}/build`,
-                src => ['.ts', '.tsx'].includes(path.extname(src)) && !src.endsWith('.d.ts'),
-                src => {
-                    fs.copyFileSync(
-                        src,
-                        `${resultDir}/${n}-${name}-${path
-                            .relative(`${workDir}/build`, src.replace('.ts', '-result.ts'))
-                            .replace(/\//g, '_')}`,
-                    );
-                },
-            );
+        forEachFile(
+            `${workDir}/build`,
+            src => ['.ts', '.tsx'].includes(path.extname(src)) && !src.endsWith('.d.ts'),
+            src => {
+                fs.copyFileSync(
+                    src,
+                    `${resultDir}/${n}-${name}-${path
+                        .relative(`${workDir}/build`, src.replace('.ts', '-result.ts'))
+                        .replace(/\//g, '_')}`,
+                );
+            },
+        );
 
-            rimraf(workDir);
+        rimraf(workDir);
 
-            console.log(`${n},"${name}","ok"`);
-        } catch (err) {
-            console.log(`${n},"${name}","failed"`);
-            console.error(err);
-        } finally {
-            fulfilled.push(promise);
-            resolve(n);
-        }
-    });
-    return promise;
+        console.log(`${n},"${moduleName}","ok"`);
+    } catch (err) {
+        console.log(`${n},"${moduleName}","failed"`);
+        console.error(err);
+    } finally {
+        return n;
+    }
 }
 
 const N = 6;
-const fulfilled: Array<Promise<number>> = [];
+const finished: Array<Promise<number>> = [];
 
 (async () => {
     let n = 0;
@@ -181,10 +174,15 @@ const fulfilled: Array<Promise<number>> = [];
         }
         if (workers.length < N) {
             ++n;
-            workers.push(main(names.shift(), n));
+            const worker = main(names.shift(), n);
+            worker.then(() => {
+                finished.push(worker);
+                return Promise.resolve(n);
+            });
+            workers.push(worker);
             continue;
         }
         await Promise.race(workers);
-        workers = workers.filter(worker => !fulfilled.includes(worker));
+        workers = workers.filter(worker => !finished.includes(worker));
     }
 })();
