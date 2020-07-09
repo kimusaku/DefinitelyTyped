@@ -20,19 +20,35 @@
         "update-codeowners": "node scripts/update-codeowners.js",
         "test": "node node_modules/@definitelytyped/dtslint-runner/dist/index.js --path .",
         "lint": "dtslint types",
-        "prettier": "prettier"
+        "prettier": "prettier",
+        "start": "ts-node -P scripts/tsconfig.json scripts/escapin-test.ts"
     },
     "devDependencies": {
         "@definitelytyped/dtslint-runner": "latest",
         "danger": "^10.1.1",
         "dtslint": "latest",
         "prettier": "^2.0.2",
-        "typescript": "next"
+        "typescript": "^4.0.0-dev.20200707"
     },
     "husky": {
         "hooks": {
             "_comment": "This will remove husky from when we started migrating to use prettier",
             "pre-commit": "npm uninstall husky"
         }
+    },
+    "dependencies": {
+        "@babel/generator": "^7.10.4",
+        "@babel/parser": "^7.10.4",
+        "@babel/types": "^7.10.4",
+        "@types/deasync": "^0.1.1",
+        "@types/rimraf": "^3.0.0",
+        "deasync": "^0.1.20",
+        "escapin": "^0.4.5",
+        "execa": "^4.0.2",
+        "mkdirp": "^1.0.4",
+        "ncp": "^2.0.0",
+        "rimraf": "^3.0.2",
+        "ts-node": "^8.10.2",
+        "tslib": "^2.0.0"
     }
 }
