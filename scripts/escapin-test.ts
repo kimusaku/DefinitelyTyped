@@ -1,6 +1,7 @@
 import generator from '@babel/generator';
 import * as parser from '@babel/parser';
 import * as t from '@babel/types';
+import parse from 'csv-parse/lib/sync';
 import deasync from 'deasync';
 import { command } from 'execa';
 import * as fs from 'fs';
@@ -51,7 +52,7 @@ function forEachFile(current: string, where: (src: string) => boolean, apply: (s
     }
 }
 
-async function main(name: string, n: number): Promise<number> {
+async function main(name: string, n: number): Promise<boolean> {
     const moduleName = assumeModuleName(name);
     const typesDir = path.resolve(`${process.cwd()}/types/${name}`);
     const workDir = `${workDirBase}/${name}`;
@@ -97,17 +98,25 @@ async function main(name: string, n: number): Promise<number> {
             },
         );
 
-        fs.writeFileSync(
-            `${workDir}/package.json`,
-            `{
-"name": "${moduleName}-test",
-"version": "1.0.0",
-"dependencies": {
-"${moduleName}": "latest"
-}
-}`,
-            'utf8',
-        );
+        const packageJsonPath = `${workDir}/package.json`;
+        if (fs.existsSync(packageJsonPath)) {
+            const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+            packageJson.name = `${packageJson.name}-test`;
+            packageJson.dependencies[moduleName] = 'latest';
+            fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8');
+        } else {
+            fs.writeFileSync(
+                `${workDir}/package.json`,
+                `{
+    "name": "${moduleName}-test",
+    "version": "1.0.0",
+    "dependencies": {
+    "${moduleName}": "latest"
+    }
+    }`,
+                'utf8',
+            );
+        }
 
         fs.writeFileSync(
             `${workDir}/.escapinrc.js`,
@@ -127,7 +136,7 @@ build/`,
             'utf8',
         );
 
-        const subprocess = command(`nohup node node_modules/escapin/bin/cli.js -d ${workDir} &`, {
+        const subprocess = command(`nohup ts-node -P ../escapin/tsconfig.json ../escapin/src/cli.ts -d ${workDir} &`, {
             env: {
                 NODE_ENV: 'test',
             },
@@ -151,6 +160,7 @@ build/`,
         );
 
         console.log(`${n},"${moduleName}","ok"`);
+        return true;
     } catch (err) {
         const msg = err.toString();
         if (msg.indexOf('npm ERR! code E404') !== -1) {
@@ -161,19 +171,34 @@ build/`,
             console.log(`${n},"${moduleName}","error"`);
         }
         console.error(err);
+        return false;
     } finally {
         rimraf(workDir);
-        return n;
     }
 }
 
+// (async () => {
+//     const csv = parse(fs.readFileSync('stdout.csv', 'utf8'), {
+//         columns: true,
+//         skip_empty_lines: true
+//     }) as Array<{ no: number, name: string, status: string }>;
+//     for (const record of csv) {
+//         if (record.status === 'error') {
+//             const succeeded = await main(record.name, record.no);
+//             if (!succeeded) {
+//                 process.exit(0);
+//             }
+//         }
+//     }
+// })();
+
 const N = cpus().length;
-const finished: Array<Promise<number>> = [];
+const finished: Array<Promise<boolean>> = [];
 
 (async () => {
     let n = 0;
     const names = fs.readdirSync(`${process.cwd()}/types`, 'utf8');
-    let workers: Array<Promise<number>> = [];
+    let workers: Array<Promise<boolean>> = [];
     console.log(`"no","name","status"`);
     while (true) {
         if (names.length === 0 && workers.length === 0) {
@@ -182,9 +207,9 @@ const finished: Array<Promise<number>> = [];
         if (names.length > 0 && workers.length < N) {
             ++n;
             const worker = main(names.shift(), n);
-            worker.then(() => {
+            worker.then(succeeded => {
                 finished.push(worker);
-                return Promise.resolve(n);
+                return Promise.resolve(succeeded);
             });
             workers.push(worker);
             continue;

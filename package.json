@@ -42,6 +42,7 @@
         "@babel/types": "^7.10.4",
         "@types/deasync": "^0.1.1",
         "@types/rimraf": "^3.0.0",
+        "csv-parse": "^4.10.1",
         "deasync": "^0.1.20",
         "escapin": "^0.4.5",
         "execa": "^4.0.2",
