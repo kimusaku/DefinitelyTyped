@@ -1,7 +1,6 @@
 import generator from '@babel/generator';
 import * as parser from '@babel/parser';
 import * as t from '@babel/types';
-import parse from 'csv-parse/lib/sync';
 import deasync from 'deasync';
 import { command } from 'execa';
 import * as fs from 'fs';
@@ -102,6 +101,9 @@ async function main(name: string, n: number): Promise<boolean> {
         if (fs.existsSync(packageJsonPath)) {
             const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
             packageJson.name = `${packageJson.name}-test`;
+            if (packageJson.dependencies === undefined) {
+                packageJson.dependencies = {};
+            }
             packageJson.dependencies[moduleName] = 'latest';
             fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2), 'utf8');
         } else {
@@ -165,8 +167,14 @@ build/`,
         const msg = err.toString();
         if (msg.indexOf('npm ERR! code E404') !== -1) {
             console.log(`${n},"${moduleName}","module not found"`);
+        } else if (msg.indexOf('ERR! code EBADPLATFORM') !== -1) {
+            console.log(`${n},"${moduleName}","bad platform"`);
         } else if (msg.indexOf('SyntaxError') !== -1) {
             console.log(`${n},"${moduleName}","syntax error"`);
+        } else if (msg.indexOf('TypeError') !== -1) {
+            console.log(`${n},"${moduleName}","type error"`);
+        } else if (msg.indexOf('npm ERR!') !== -1) {
+            console.log(`${n},"${moduleName}","npm error"`);
         } else {
             console.log(`${n},"${moduleName}","error"`);
         }
@@ -177,14 +185,24 @@ build/`,
     }
 }
 
+// import parse from 'csv-parse/lib/sync';
+// function assumeDirectoryName(moduleName: string): string {
+//     const matches = /^@(.+)\/(.*)$/i.exec(moduleName);
+//     if (matches === null) {
+//         return moduleName;
+//     }
+//     matches.shift();
+//     return `${matches.join('__')}`;
+// }
+//
 // (async () => {
-//     const csv = parse(fs.readFileSync('stdout.csv', 'utf8'), {
+//     const csv = parse(fs.readFileSync('stdout2.csv', 'utf8'), {
 //         columns: true,
 //         skip_empty_lines: true
 //     }) as Array<{ no: number, name: string, status: string }>;
 //     for (const record of csv) {
 //         if (record.status === 'error') {
-//             const succeeded = await main(record.name, record.no);
+//             const succeeded = await main(assumeDirectoryName(record.name), record.no);
 //             if (!succeeded) {
 //                 process.exit(0);
 //             }
